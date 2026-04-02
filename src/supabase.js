@@ -3,8 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 
 // En Vite las variables de entorno usan VITE_ como prefijo (no REACT_APP_)
 // Crealas en Vercel > Settings > Environment Variables
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://TU_PROYECTO.supabase.co'
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_Mq3PcVUpHIEJDGBF_qdN9Q_xLf2Nv1J'
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://ddbwazgkhwzfnnslszwn.supabase.co'
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'TU_ANON_KEY_AQUI'
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
