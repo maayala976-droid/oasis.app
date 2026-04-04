@@ -19,34 +19,52 @@ function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
 
- const fetchProfile = useCallback(async (uid) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', uid)
-      .single()
-    if (!error && data) {
-      setProfile(data)
-      // Forzar re-render si es admin
-      if (data.role === 'admin') {
-        setTimeout(() => setProfile({...data}), 100)
-      }
+  const fetchProfile = async (uid) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, role, client_code, whatsapp')
+        .eq('id', uid)
+        .single()
+      if (!error && data) setProfile(data)
+      else setProfile(null)
+    } catch (e) {
+      setProfile(null)
     }
-  }, [])
+  }
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-      if (session?.user) fetchProfile(session.user.id)
-      setLoading(false)
+    let isMounted = true
+
+    const init = async () => {
+      setLoading(true)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.user && isMounted) {
+        setUser(session.user)
+        await fetchProfile(session.user.id)
+      }
+      if (isMounted) setLoading(false)
+    }
+
+    init()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!isMounted) return
+      if (session?.user) {
+        setUser(session.user)
+        await fetchProfile(session.user.id)
+      } else {
+        setUser(null)
+        setProfile(null)
+      }
+      if (isMounted) setLoading(false)
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user ?? null)
-      if (session?.user) fetchProfile(session.user.id)
-      else setProfile(null)
-    })
-    return () => subscription.unsubscribe()
-  }, [fetchProfile])
+
+    return () => {
+      isMounted = false
+      subscription.unsubscribe()
+    }
+  }, [])
 
   const signOut = () => supabase.auth.signOut()
 
