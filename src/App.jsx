@@ -1,5 +1,5 @@
 // src/App.jsx — Oasis Polirrubro PWA — Vite + React
-import React, { useState, useEffect, useContext, createContext, useCallback } from 'react'
+import React, { useState, useEffect, useContext, createContext, useCallback, useMemo } from 'react'
 import { supabase, uploadImage, generateOrderCode } from './supabase.js'
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
