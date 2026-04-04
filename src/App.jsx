@@ -19,57 +19,78 @@ function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  const fetchProfile = async (uid) => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, role, client_code, whatsapp')
-        .eq('id', uid)
-        .single()
-      if (!error && data) setProfile(data)
-      else setProfile(null)
-    } catch (e) {
-      setProfile(null)
+  const syncProfile = useCallback(async (uid) => {
+    if (!uid) return null
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, full_name, role, client_code, whatsapp')
+      .eq('id', uid)
+      .single()
+    if (error) {
+      console.error('[Auth_Critical_Error]:', {
+        msg: error.message, details: error.details, hint: error.hint
+      })
+      return null
     }
-  }
+    return data
+  }, [])
 
   useEffect(() => {
     let isMounted = true
 
-    const init = async () => {
-      setLoading(true)
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session?.user && isMounted) {
-        setUser(session.user)
-        await fetchProfile(session.user.id)
-      }
-      if (isMounted) setLoading(false)
-    }
-
-    init()
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const handleSessionChange = async (session) => {
       if (!isMounted) return
       if (session?.user) {
-        setUser(session.user)
-        await fetchProfile(session.user.id)
+        const userData = await syncProfile(session.user.id)
+        if (isMounted) {
+          setUser(session.user)
+          setProfile(userData)
+          setLoading(false)
+        }
       } else {
-        setUser(null)
-        setProfile(null)
+        if (isMounted) {
+          setUser(null)
+          setProfile(null)
+          setLoading(false)
+        }
       }
-      if (isMounted) setLoading(false)
+    }
+
+    const initialize = async () => {
+      setLoading(true)
+      const { data: { session } } = await supabase.auth.refreshSession()
+        .catch(() => ({ data: { session: null } }))
+      await handleSessionChange(session)
+    }
+
+    initialize()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        handleSessionChange(session)
+      }
+      if (event === 'SIGNED_OUT') {
+        handleSessionChange(null)
+      }
     })
 
     return () => {
       isMounted = false
       subscription.unsubscribe()
     }
-  }, [])
+  }, [syncProfile])
 
-  const signOut = () => supabase.auth.signOut()
+  const value = useMemo(() => ({
+    user,
+    profile,
+    loading,
+    isAdmin: profile?.role === 'admin',
+    signOut: () => supabase.auth.signOut(),
+    fetchProfile: syncProfile,
+  }), [user, profile, loading, syncProfile])
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signOut, fetchProfile }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   )
