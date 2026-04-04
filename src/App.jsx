@@ -19,9 +19,19 @@ function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  const fetchProfile = useCallback(async (uid) => {
-    const { data } = await supabase.from('profiles').select('*').eq('id', uid).single()
-    setProfile(data)
+ const fetchProfile = useCallback(async (uid) => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', uid)
+      .single()
+    if (!error && data) {
+      setProfile(data)
+      // Forzar re-render si es admin
+      if (data.role === 'admin') {
+        setTimeout(() => setProfile({...data}), 100)
+      }
+    }
   }, [])
 
   useEffect(() => {
